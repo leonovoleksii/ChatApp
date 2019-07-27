@@ -26,8 +26,12 @@ public class Client {
                     frame.setLayout(new FlowLayout());
                     messages = new JTextArea(15, 40);
                     messages.setEditable(false);
+                    messages.setLineWrap(true);
+                    messages.setMaximumSize(new Dimension(500, 300));
                     frame.add(messages);
                     message = new JTextArea(8, 34);
+                    message.setMaximumSize(new Dimension(400, 100));
+                    message.setLineWrap(true);
                     frame.add(message);
                     sendBtn = new JButton("Send");
                     sendBtn.addActionListener(new ButtonListener());
@@ -58,6 +62,39 @@ public class Client {
                 }
             }
         }
+
+        void appendMessage(String s) {
+            messages.append(s);
+        }
+    }
+
+    static class InputProcessor implements Runnable {
+        Frame frame;
+        InputProcessor(Frame frame) { this.frame = frame; }
+
+        public void run() {
+            try {
+                while (clientSocket.isConnected()) {
+                    // get the length of the message
+                    int rpart = in.read();
+                    if (rpart == -1) {
+                        clientSocket.close();
+                        break;
+                    }
+                    int lpart = in.read();
+                    int mlength = rpart + (lpart << 8);
+
+                    // get the message
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < mlength; i++) {
+                        sb.append((char)in.read());
+                    }
+                    frame.appendMessage(sb.toString() + "\n");
+                }
+            } catch (IOException e) {
+                System.out.println("Error! Unable to read a message from server");
+            }
+        }
     }
 
     public static void main(String[] args) {
@@ -75,5 +112,9 @@ public class Client {
         } catch (IOException e) {
             System.out.println("Error! Unable to create io channels");
         }
+
+        Thread t = new Thread(new InputProcessor(frame));
+        t.setDaemon(true);
+        t.start();
     }
 }

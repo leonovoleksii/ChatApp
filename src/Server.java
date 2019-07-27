@@ -2,7 +2,6 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -46,7 +45,18 @@ public class Server {
                        sb.append((char)in.read());
                    System.out.println(sb.toString());
 
-               } catch (IOException e) {}
+                   // send message to users
+                   for (Socket client : clientSockets) {
+                       BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(client.getOutputStream()));
+                       bw.write(rpart);
+                       bw.write(lpart);
+                       bw.write(sb.toString());
+                       bw.flush();
+                   }
+
+               } catch (IOException e) {
+                   System.out.println("Error! Unpredicted io behavior");
+               }
             }
         }
     }
