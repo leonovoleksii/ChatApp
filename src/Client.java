@@ -2,6 +2,7 @@ import java.awt.event.*;
 import java.io.*;
 import java.net.Socket;
 import javax.swing.*;
+import javax.swing.text.*;
 import java.awt.*;
 
 public class Client {
@@ -17,49 +18,91 @@ public class Client {
         JTextArea messages;
         JTextArea message;
         JButton sendBtn;
+        JTextField name;
+        JButton loginBtn;
+        JLabel wrongLoginLabel;
+
         Frame() {
-            SwingUtilities.invokeLater(new Runnable() {
-                public void run() {
-                    frame = new JFrame("Chat");
-                    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    frame.setSize(500, 400);
-                    frame.setLayout(new FlowLayout());
-                    messages = new JTextArea(15, 40);
-                    messages.setEditable(false);
-                    messages.setLineWrap(true);
-                    messages.setMaximumSize(new Dimension(500, 300));
-                    frame.add(messages);
-                    message = new JTextArea(8, 34);
-                    message.setMaximumSize(new Dimension(400, 100));
-                    message.setLineWrap(true);
-                    frame.add(message);
-                    sendBtn = new JButton("Send");
-                    sendBtn.addActionListener(new ButtonListener());
-                    frame.add(sendBtn);
-                    frame.setLocationRelativeTo(null);
-                    frame.setVisible(true);
-                }
-            });
+            try {
+                SwingUtilities.invokeAndWait(new LoggerUI());
+            } catch (Exception e) {}
+            processName(this);
+            try {
+                SwingUtilities.invokeAndWait(new ChatUI());
+            } catch (Exception e) {}
+            processMessage(this);
         }
 
         class ButtonListener implements ActionListener {
+            private void sendMessage(JTextComponent t) {
+                String m = t.getText();
+                int mLength = m.length();
+                try {
+                    // send the length of the message
+                    out.write(mLength & 255);
+                    out.write((mLength >> 8) & 255);
+                    // send the message
+                    out.write(m);
+                    out.flush();
+                } catch (IOException exc) {
+                    System.out.println("Error! Unable to send a message");
+                }
+                t.setText("");
+            }
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (e.getActionCommand().equals("Send")) {
-                    String m = message.getText();
-                    int mLength = m.length();
-                    try {
-                        // send the length of the message
-                        out.write(mLength & 255);
-                        out.write((mLength >> 8) & 255);
-                        // send the message
-                        out.write(m);
-                        out.flush();
-                    } catch (IOException exc) {
-                        System.out.println("Error! Unable to send a message");
-                    }
-                    message.setText("");
+                    sendMessage(message);
                 }
+                if (e.getActionCommand().equals("Login")) {
+                    sendMessage(name);
+                }
+            }
+        }
+
+        class ChatUI implements Runnable {
+            @Override
+            public void run() {
+                name.setVisible(false);
+                wrongLoginLabel.setVisible(false);
+                loginBtn.setVisible(false);
+                frame.remove(name);
+                frame.remove(wrongLoginLabel);
+                frame.remove(loginBtn);
+
+                messages = new JTextArea(15, 40);
+                messages.setEditable(false);
+                messages.setLineWrap(true);
+                messages.setMaximumSize(new Dimension(500, 300));
+                frame.add(messages);
+                message = new JTextArea(8, 34);
+                message.setMaximumSize(new Dimension(400, 100));
+                message.setLineWrap(true);
+                frame.add(message);
+                sendBtn = new JButton("Send");
+                sendBtn.addActionListener(new ButtonListener());
+                frame.add(sendBtn);
+                frame.setVisible(true);
+            }
+        }
+
+        class LoggerUI implements Runnable {
+            @Override
+            public void run() {
+                frame = new JFrame("Chat");
+                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                frame.setLayout(new FlowLayout());
+                frame.setSize(500, 400);
+                wrongLoginLabel = new JLabel("User with this name already exists. Try again please");
+                wrongLoginLabel.setVisible(false);
+                frame.add(wrongLoginLabel);
+                name = new JTextField("Name", 34);
+                frame.add(name);
+                loginBtn = new JButton("Login");
+                loginBtn.addActionListener(new ButtonListener());
+                frame.add(loginBtn);
+                frame.setLocationRelativeTo(null);
+                frame.setVisible(true);
             }
         }
 
@@ -68,37 +111,45 @@ public class Client {
         }
     }
 
-    static class InputProcessor implements Runnable {
-        Frame frame;
-        InputProcessor(Frame frame) { this.frame = frame; }
-
-        public void run() {
-            try {
-                while (clientSocket.isConnected()) {
-                    // get the length of the message
-                    int rpart = in.read();
-                    if (rpart == -1) {
-                        clientSocket.close();
-                        break;
-                    }
-                    int lpart = in.read();
-                    int mlength = rpart + (lpart << 8);
-
-                    // get the message
-                    StringBuilder sb = new StringBuilder();
-                    for (int i = 0; i < mlength; i++) {
-                        sb.append((char)in.read());
-                    }
-                    frame.appendMessage(sb.toString() + "\n");
+    public static void processMessage(Frame frame) {
+        try {
+            while (clientSocket.isConnected()) {
+                // get the length of the message
+                int rpart = in.read();
+                if (rpart == -1) {
+                    clientSocket.close();
+                    break;
                 }
-            } catch (IOException e) {
-                System.out.println("Error! Unable to read a message from server");
+                int lpart = in.read();
+                int mlength = rpart + (lpart << 8);
+
+                // get the message
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < mlength; i++) {
+                    sb.append((char)in.read());
+                }
+                frame.appendMessage(sb.toString() + "\n");
             }
+        } catch (IOException e) {
+            System.out.println("Error! Unable to read a message from server");
         }
     }
 
+    public static void processName(Frame frame) {
+        int answer = 1;
+        do {
+            try {
+                if (answer == 0) {
+                    frame.wrongLoginLabel.setVisible(true);
+                }
+                answer = in.read();
+            } catch (IOException e) {
+                System.out.println("Unable to get answer from server");
+            }
+        } while (answer == 0);
+    }
+
     public static void main(String[] args) {
-        frame = new Frame();
 
         try {
             clientSocket = new Socket(host, port);
@@ -113,8 +164,6 @@ public class Client {
             System.out.println("Error! Unable to create io channels");
         }
 
-        Thread t = new Thread(new InputProcessor(frame));
-        t.setDaemon(true);
-        t.start();
+        frame = new Frame();
     }
 }
