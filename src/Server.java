@@ -1,4 +1,5 @@
 import java.io.*;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -99,8 +100,13 @@ public class Server {
     }
 
     public static void main(String[] args) {
+        if (args[0] == null || args[1] == null) {
+            System.out.println("Usage - java Server 'host ip' 'port'");
+            return;
+        }
         try {
-            serverSocket = new ServerSocket(port);
+            InetAddress address = InetAddress.getByName(args[0]);
+            serverSocket = new ServerSocket(Integer.parseInt(args[1]), 10, address);
         } catch (IOException e) {
             System.out.println("Error! Unable to start the server on port " + port);
             return;
