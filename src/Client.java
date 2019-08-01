@@ -7,8 +7,8 @@ import java.awt.*;
 
 public class Client {
     private static Socket clientSocket;
-    private static String host = "localhost";
-    private static int port = 7373;
+    private static String host;
+    private static int port;
     private static BufferedReader in;
     private static BufferedWriter out;
     private static Frame frame;
@@ -150,7 +150,12 @@ public class Client {
     }
 
     public static void main(String[] args) {
-
+        if (args.length != 2) {
+            System.out.println("Usage - java Client 'host ip' 'port'");
+            return;
+        }
+        host = args[0];
+        port = Integer.parseInt(args[1]);
         try {
             clientSocket = new Socket(host, port);
         } catch (IOException e) {
