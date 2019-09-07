@@ -2,7 +2,7 @@
 A simple multi-user chat application written in Java using standard libraries.
 ## Prerequisites
 You need JDK to be installed on your machine.
-## Installing
+## Installation
 Run this command in your terminal:</br>
 `javac Server.java Client.java`
 ## Usage
